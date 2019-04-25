@@ -181,8 +181,8 @@ void run_front_sensors_calibration(void)
 	float linear_deceleration = get_linear_deceleration();
 	float distance;
 
+	reset_motion();
 	calibrate();
-	disable_walls_control();
 	enable_motor_control();
 
 	set_linear_acceleration(2.);
