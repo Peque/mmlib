@@ -93,7 +93,7 @@ bool collision_detected(void)
 void reset_collision_detection(void)
 {
 	collision_detected_signal = false;
-	reset_pwm_saturation();
+	reset_pwm_is_saturated();
 }
 
 /**
@@ -280,6 +280,7 @@ void motor_control(void)
 {
 	float linear_pwm;
 	float angular_pwm;
+	float pwm_saturation;
 	float side_sensors_feedback = 0.;
 	float front_sensors_feedback = 0.;
 	float diagonal_sensors_feedback = 0.;
@@ -315,6 +316,10 @@ void motor_control(void)
 
 	linear_pwm = control.kp_linear * linear_error +
 		     control.kd_linear * (linear_error - last_linear_error);
+	if (power_is_saturated(linear_pwm)) {
+		linear_pwm = power_limit(linear_pwm);
+		linear_error = 0.;
+	}
 	angular_pwm =
 	    control.kp_angular * angular_error +
 	    control.kd_angular * (angular_error - last_angular_error) +
@@ -324,9 +329,15 @@ void motor_control(void)
 	    control.ki_angular_side * side_sensors_integral +
 	    control.ki_angular_front * front_sensors_integral +
 	    control.ki_angular_diagonal * diagonal_sensors_integral;
+	if (power_is_saturated(angular_pwm)) {
+		set_collision_detected();
+	}
 
 	pwm_left = (int32_t)(linear_pwm + angular_pwm);
 	pwm_right = (int32_t)(linear_pwm - angular_pwm);
+	pwm_saturation = power_pwm_saturation(pwm_left, pwm_right);
+	pwm_left -= pwm_saturation;
+	pwm_right -= pwm_saturation;
 
 	power_left(pwm_left);
 	power_right(pwm_right);
@@ -334,6 +345,6 @@ void motor_control(void)
 	last_linear_error = linear_error;
 	last_angular_error = angular_error;
 
-	if (pwm_saturation() > MAX_PWM_SATURATION_PERIOD * SYSTICK_FREQUENCY_HZ)
+	if (pwm_is_saturated() > MAX_PWM_SATURATION_PERIOD * SYSTICK_FREQUENCY_HZ)
 		set_collision_detected();
 }
