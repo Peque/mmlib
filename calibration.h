@@ -17,6 +17,8 @@ void calibrate(void);
 void run_linear_speed_profile(void);
 void run_angular_speed_profile(void);
 void run_distances_profiling(void);
+void run_motors_speed_calibration(float speed);
+void run_motors_force_calibration(float force);
 void run_movement_sequence(const char *sequence);
 void run_static_turn_right_profile(void);
 void run_front_sensors_calibration(void);

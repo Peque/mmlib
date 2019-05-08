@@ -18,6 +18,12 @@ static void process_command(char *string)
 		run_linear_speed_profile();
 	else if (!strcmp(string, "run angular_speed_profile"))
 		run_angular_speed_profile();
+	else if (starts_with(string, "run motors_speed_calibration "))
+		run_motors_speed_calibration(
+		    parse_float(string, RECEIVE_BUFFER_SIZE, 2));
+	else if (starts_with(string, "run motors_force_calibration "))
+		run_motors_force_calibration(
+		    parse_float(string, RECEIVE_BUFFER_SIZE, 2));
 	else if (!strcmp(string, "run static_turn_right_profile"))
 		run_static_turn_right_profile();
 	else if (!strcmp(string, "run front_sensors_calibration"))

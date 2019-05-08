@@ -84,6 +84,56 @@ void run_static_turn_right_profile(void)
 }
 
 /**
+ * @brief TODO.
+ *
+ * TODO.
+ */
+void run_motors_speed_calibration(float speed)
+{
+	calibrate();
+	disable_walls_control();
+	enable_motor_control();
+	set_ideal_angular_speed(0.);
+	side_sensors_close_control(true);
+	set_target_linear_speed(speed);
+	while (get_measured_linear_speed() < speed)
+		;
+	start_data_logging(log_data_control);
+	sleep_ticks(200);
+	stop_data_logging();
+	set_target_linear_speed(0.);
+	while (get_ideal_linear_speed() != 0.)
+		;
+	reset_motion();
+}
+
+/**
+ * @brief TODO.
+ *
+ * TODO.
+ */
+void run_motors_force_calibration(float force)
+{
+	float target_speed = 1.5;
+
+	kinematic_configuration(force, true);
+	calibrate();
+	disable_walls_control();
+	enable_motor_control();
+	set_ideal_angular_speed(0.);
+	side_sensors_close_control(true);
+	start_data_logging(log_data_control);
+	set_target_linear_speed(target_speed);
+	while ((get_ideal_linear_speed() < target_speed))
+		;
+	set_target_linear_speed(0.);
+	while (get_ideal_linear_speed() != 0.)
+		;
+	stop_data_logging();
+	reset_motion();
+}
+
+/**
  * Execute simple movement command sequences.
  *
  * - 'O': to get out of the starting cell.
