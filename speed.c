@@ -10,25 +10,6 @@ static volatile float max_force;
 static volatile float max_linear_speed;
 
 /**
- * Parameters that define a turn.
- *
- * - Meters to travel in straight line before turning
- * - Meters to travel in straight line after turning
- * - Curve minimum radius
- * - Duration, in meters, of the angular acceleration phase
- * - Duration, in meters, of the constant angular velocity phase
- * - Sign of the turn (left or right)
- */
-struct turn_parameters {
-	float before;
-	float after;
-	float radius;
-	float transition;
-	float arc;
-	int sign;
-};
-
-/**
  * @brief Calculate the maximum search linear speed.
  *
  * This speed is calculated so that the search speed in long straight lines
@@ -70,7 +51,7 @@ void kinematic_configuration(float force, bool run)
 }
 
 // clang-format off
-struct turn_parameters turns[] = {
+static struct turn_parameters turns[] = {
     [MOVE_LEFT] = {0.01700, 0.01700, 0.04921, 0.06042, 0.00037, -1},
     [MOVE_RIGHT] = {0.01700, 0.01700, 0.04921, 0.06042, 0.00037, 1},
     [MOVE_LEFT_90] = {-0.06272, -0.06272, 0.13000, 0.06042, 0.12728, -1},
@@ -89,6 +70,18 @@ struct turn_parameters turns[] = {
     [MOVE_RIGHT_DIAGONAL] = {0.03888, 0.03888, 0.06500, 0.06042, 0.02518, 1},
 };
 // clang-format on
+
+/**
+ * @brief Get the turn parameters associated to a given turn type.
+ *
+ * @param[in] turn_type Turn type.
+ *
+ * @return The turn parameters.
+ */
+struct turn_parameters get_turn_parameters(enum movement turn_type)
+{
+	return turns[turn_type];
+}
 
 float get_max_force(void)
 {
@@ -118,46 +111,6 @@ float get_max_linear_speed(void)
 void set_max_linear_speed(float value)
 {
 	max_linear_speed = value;
-}
-
-/**
- * @brief Execute a speed turn.
- *
- * @param[in] turn_type Turn type.
- * @param[in] force Maximum force to apply while turning.
- */
-void speed_turn(enum movement turn_type, float force)
-{
-	int32_t start;
-	int32_t current;
-	float travelled;
-	float linear_velocity;
-	float angular_velocity;
-	float max_angular_velocity;
-	float factor;
-	struct turn_parameters turn = turns[turn_type];
-
-	linear_velocity = get_move_turn_linear_speed(turn_type, force);
-	max_angular_velocity = turn.sign * linear_velocity / turn.radius;
-
-	disable_walls_control();
-	start = get_encoder_average_micrometers();
-	while (true) {
-		current = get_encoder_average_micrometers();
-		travelled = (float)(current - start) / MICROMETERS_PER_METER;
-		if (travelled >= 2 * turn.transition + turn.arc)
-			break;
-		angular_velocity = max_angular_velocity;
-		if (travelled < turn.transition) {
-			factor = travelled / turn.transition;
-			angular_velocity *= sin(factor * PI / 2);
-		} else if (travelled >= turn.transition + turn.arc) {
-			factor = (travelled - turn.arc) / turn.transition;
-			angular_velocity *= sin(factor * PI / 2);
-		}
-		set_ideal_angular_speed(angular_velocity);
-	}
-	set_ideal_angular_speed(0);
 }
 
 /**

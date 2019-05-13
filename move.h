@@ -34,6 +34,7 @@ void move_side(enum movement turn, float force);
 void move_back(float force);
 void move(enum step_direction direction, float force);
 void inplace_turn(float radians, float force);
+void speed_turn(enum movement turn_type, float force);
 void execute_movement_sequence(char *sequence, float force,
 			       enum path_language language);
 

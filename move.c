@@ -1,8 +1,6 @@
 #include "move.h"
 
 static int32_t current_cell_start_micrometers;
-/* Angular acceleration is defined in radians per second squared. */
-static float angular_acceleration;
 
 /**
  * @brief Return the current robot shift inside the cell, in meters.
@@ -414,6 +412,26 @@ void move(enum step_direction direction, float force)
 		stop_middle();
 }
 
+static bool update_angular_velocity_control(float progress, float transition,
+					    float arc,
+					    float max_angular_velocity)
+{
+	float factor = 0.;
+	float angular_velocity;
+
+	if (progress >= 2 * transition + arc)
+		return true;
+	if (progress < transition)
+		factor = progress / transition;
+	else if (progress >= transition + arc)
+		factor = (progress - arc) / transition;
+	else
+		factor = 1.;
+	angular_velocity = max_angular_velocity * sin(factor * PI / 2);
+	set_ideal_angular_speed(angular_velocity);
+	return false;
+}
+
 /**
  * @brief Execute an in-place turn.
  *
@@ -422,27 +440,27 @@ void move(enum step_direction direction, float force)
  */
 void inplace_turn(float radians, float force)
 {
+	bool finished;
 	int turn_sign;
 	int32_t start;
 	int32_t current;
 	float time;
-	float angular_velocity;
 	float max_angular_velocity;
-	float factor;
 	float arc;
 	float transition;
 	float duration;
 	float transition_angle;
+	float max_angular_acceleration;
 
 	turn_sign = sign(radians);
 	radians = fabsf(radians);
-	angular_acceleration =
+	max_angular_acceleration =
 	    force * MOUSE_WHEELS_SEPARATION / MOUSE_MOMENT_OF_INERTIA;
-	max_angular_velocity = sqrt(radians / 2 * angular_acceleration);
+	max_angular_velocity = sqrt(radians / 2 * max_angular_acceleration);
 	if (max_angular_velocity > MOUSE_MAX_ANGULAR_VELOCITY)
 		max_angular_velocity = MOUSE_MAX_ANGULAR_VELOCITY;
 
-	duration = max_angular_velocity / angular_acceleration * PI;
+	duration = max_angular_velocity / max_angular_acceleration * PI;
 	transition_angle = duration * max_angular_velocity / PI;
 	arc = (radians - 2 * transition_angle) / max_angular_velocity;
 	transition = duration / 2;
@@ -454,17 +472,42 @@ void inplace_turn(float radians, float force)
 	while (true) {
 		current = get_clock_ticks();
 		time = (float)(current - start) / SYSTICK_FREQUENCY_HZ;
-		if (time >= 2 * transition + arc)
+		finished = update_angular_velocity_control(
+		    time, transition, arc, max_angular_velocity);
+		if (finished)
 			break;
-		angular_velocity = max_angular_velocity;
-		if (time < transition) {
-			factor = time / transition;
-			angular_velocity *= sin(factor * PI / 2);
-		} else if (time >= transition + arc) {
-			factor = (time - arc) / transition;
-			angular_velocity *= sin(factor * PI / 2);
-		}
-		set_ideal_angular_speed(angular_velocity);
+	}
+	set_ideal_angular_speed(0);
+}
+
+/**
+ * @brief Execute a speed turn.
+ *
+ * @param[in] turn_type Turn type.
+ * @param[in] force Maximum force to apply while turning.
+ */
+void speed_turn(enum movement turn_type, float force)
+{
+	bool finished;
+	int32_t start;
+	int32_t current;
+	float travelled;
+	float linear_velocity;
+	float max_angular_velocity;
+	struct turn_parameters turn = get_turn_parameters(turn_type);
+
+	linear_velocity = get_move_turn_linear_speed(turn_type, force);
+	max_angular_velocity = turn.sign * linear_velocity / turn.radius;
+
+	disable_walls_control();
+	start = get_encoder_average_micrometers();
+	while (true) {
+		current = get_encoder_average_micrometers();
+		travelled = (float)(current - start) / MICROMETERS_PER_METER;
+		finished = update_angular_velocity_control(
+		    travelled, turn.transition, turn.arc, max_angular_velocity);
+		if (finished)
+			break;
 	}
 	set_ideal_angular_speed(0);
 }
