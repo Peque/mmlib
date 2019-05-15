@@ -278,6 +278,29 @@ void set_ideal_angular_speed(float speed)
 	ideal_angular_speed = speed;
 }
 
+static float calculate_next_ideal_linear_speed(void)
+{
+	float next = ideal_linear_speed;
+
+	if (next < target_linear_speed) {
+		next += get_linear_acceleration() / SYSTICK_FREQUENCY_HZ;
+		if (next > target_linear_speed)
+			next = target_linear_speed;
+	} else if (next > target_linear_speed) {
+		next -= get_linear_deceleration() / SYSTICK_FREQUENCY_HZ;
+		if (next < target_linear_speed)
+			next = target_linear_speed;
+	}
+	return next;
+}
+
+static float calculate_next_force(float next_ideal_linear_speed)
+{
+	float vdiff = next_ideal_linear_speed - ideal_linear_speed;
+	float accel = vdiff * SYSTICK_FREQUENCY_HZ;
+	return accel * MOUSE_MASS;
+}
+
 /**
  * @brief Update ideal linear speed according to the defined speed profile.
  *
@@ -299,6 +322,15 @@ void update_ideal_linear_speed(void)
 	}
 }
 
+static float get_speed_direction(void)
+{
+	if (target_linear_speed > 0.)
+		return 1.;
+	if (target_linear_speed < 0.)
+		return -1.;
+	return 0.;
+}
+
 /**
  * @brief Execute the robot motor control.
  *
@@ -310,17 +342,19 @@ void update_ideal_linear_speed(void)
  */
 void motor_control(void)
 {
-	float linear_voltage;
-	float angular_voltage;
+	float feedback_linear;
+	float feedback_angular;
+	float feedforward_left;
+	float feedforward_right;
 	float side_sensors_feedback = 0.;
 	float front_sensors_feedback = 0.;
 	float diagonal_sensors_feedback = 0.;
 	struct control_constants control;
+	float next_ideal_linear_speed;
+	float next_force;
 
 	if (!motor_control_enabled_signal)
 		return;
-
-	update_ideal_linear_speed();
 
 	if (side_sensors_close_control_enabled) {
 		side_sensors_feedback += get_side_sensors_close_error();
@@ -347,9 +381,10 @@ void motor_control(void)
 
 	control = get_control_constants();
 
-	linear_voltage = control.kp_linear * linear_error +
-			 control.kd_linear * (linear_error - last_linear_error);
-	angular_voltage =
+	feedback_linear =
+	    control.kp_linear * linear_error +
+	    control.kd_linear * (linear_error - last_linear_error);
+	feedback_angular =
 	    control.kp_angular * angular_error +
 	    control.kd_angular * (angular_error - last_angular_error) +
 	    control.kp_angular_side * side_sensors_feedback +
@@ -359,8 +394,19 @@ void motor_control(void)
 	    control.ki_angular_front * front_sensors_integral +
 	    control.ki_angular_diagonal * diagonal_sensors_integral;
 
-	voltage_left = linear_voltage + angular_voltage;
-	voltage_right = linear_voltage - angular_voltage;
+	next_ideal_linear_speed = calculate_next_ideal_linear_speed();
+	next_force = calculate_next_force(next_ideal_linear_speed);
+
+	feedforward_left = FEEDFORWARD_SPEED_LEFT_0 * get_speed_direction() +
+			   FEEDFORWARD_SPEED_LEFT_1 * next_ideal_linear_speed +
+			   FEEDFORWARD_FORCE_LEFT * next_force / 2.;
+	feedforward_right =
+	    FEEDFORWARD_SPEED_RIGHT_0 * get_speed_direction() +
+	    FEEDFORWARD_SPEED_RIGHT_1 * next_ideal_linear_speed +
+	    FEEDFORWARD_FORCE_RIGHT * next_force / 2.;
+
+	voltage_left = feedforward_left + feedback_linear + feedback_angular;
+	voltage_right = feedforward_right + feedback_linear - feedback_angular;
 	pwm_left = voltage_to_motor_pwm(voltage_left);
 	pwm_right = voltage_to_motor_pwm(voltage_right);
 
@@ -369,6 +415,8 @@ void motor_control(void)
 
 	last_linear_error = linear_error;
 	last_angular_error = angular_error;
+
+	ideal_linear_speed = next_ideal_linear_speed;
 
 	if (motor_driver_saturation() >
 	    MAX_MOTOR_DRIVER_SATURATION_PERIOD * SYSTICK_FREQUENCY_HZ)
