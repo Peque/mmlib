@@ -24,6 +24,9 @@ static void process_command(char *string)
 	else if (starts_with(string, "run motors_force_calibration "))
 		run_motors_force_calibration(
 		    parse_float(string, RECEIVE_BUFFER_SIZE, 2));
+	else if (starts_with(string, "run motors_angular_calibration "))
+		run_motors_angular_calibration(
+		    parse_float(string, RECEIVE_BUFFER_SIZE, 2));
 	else if (!strcmp(string, "run static_turn_right_profile"))
 		run_static_turn_right_profile();
 	else if (!strcmp(string, "run front_sensors_calibration"))

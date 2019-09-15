@@ -134,6 +134,26 @@ void run_motors_force_calibration(float force)
 }
 
 /**
+ * @brief TODO.
+ *
+ * TODO.
+ */
+void run_motors_angular_calibration(float force)
+{
+        char *sequence = "BFFFRRFFLLFRLFFLFFLFFFFFS";
+        set_custom_run_sequence(sequence);
+	kinematic_configuration(force, true);
+	calibrate();
+	start_data_logging(log_data_control);
+	enable_motor_control();
+	set_starting_position();
+	run(force);
+	reset_motion();
+	stop_data_logging();
+	reset_motion();
+}
+
+/**
  * Execute simple movement command sequences.
  *
  * - 'O': to get out of the starting cell.

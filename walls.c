@@ -3,7 +3,7 @@
 #define SIDE_WALL_DETECTION (CELL_DIMENSION * 0.90)
 #define FRONT_WALL_DETECTION (CELL_DIMENSION * 1.5)
 #define SIDE_CALIBRATION_READINGS 20
-#define DIAGONAL_MIN_DISTANCE 0.24
+#define DIAGONAL_MIN_DISTANCE 0.20
 
 static volatile float distance[NUM_SENSOR];
 static volatile float calibration_factor[NUM_SENSOR];

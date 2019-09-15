@@ -15,6 +15,7 @@ void explore(float force);
 void send_state(void);
 #endif
 void set_run_sequence(void);
+void set_custom_run_sequence(const char *sequence);
 void run(float force);
 void run_back(float force);
 void save_maze(void);

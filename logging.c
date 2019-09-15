@@ -194,7 +194,8 @@ void log_data_control(void)
 	int left_pwm = get_left_pwm();
 	int right_pwm = get_right_pwm();
 
-	LOG_DATA("[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%d,%d]",
+	LOG_DATA("[%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%d,%d]",
+get_side_sensors_integral(), get_front_sensors_integral(), get_diagonal_sensors_integral(),
 		 front_left_distance, front_right_distance, side_left_distance,
 		 side_right_distance, ideal_linear, measured_linear,
 		 ideal_angular, measured_angular, left_voltage, right_voltage,

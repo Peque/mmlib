@@ -66,6 +66,11 @@ void explore(float force)
 	turn_to_start_position(force);
 }
 
+void set_custom_run_sequence(const char *sequence)
+{
+        strcpy(run_sequence, sequence);
+}
+
 /**
  * @brief Define the movement sequence to be executed on speed runs.
  */
@@ -114,6 +119,7 @@ void set_run_sequence(void)
  */
 void run(float force)
 {
+        LOG_ERROR("Run sequence: %s", run_sequence);
 	execute_movement_sequence(run_sequence, force, PATH_DIAGONALS);
 }
 
@@ -128,6 +134,7 @@ void run_back(float force)
 	char run_back[MAZE_AREA];
 	char translation = '\0';
 
+        LOG_ERROR("Run sequence: %s", run_sequence);
 	length = strlen(run_sequence);
 	for (int i = 0; i < length; i++) {
 		switch (run_sequence[i]) {
@@ -152,6 +159,7 @@ void run_back(float force)
 		run_back[length - i - 1] = translation;
 	}
 	run_back[length] = '\0';
+        LOG_ERROR("Run back: %s", run_sequence);
 	execute_movement_sequence(run_back, force, PATH_SAFE);
 }
 

@@ -8,6 +8,7 @@ static volatile float linear_error;
 static volatile float angular_error;
 static volatile float last_linear_error;
 static volatile float last_angular_error;
+static volatile float last_ideal_angular_speed;
 
 static volatile float voltage_left;
 static volatile float voltage_right;
@@ -190,6 +191,21 @@ void reset_motion(void)
 	reset_control_all();
 }
 
+float get_side_sensors_integral(void)
+{
+	return side_sensors_integral;
+}
+
+float get_front_sensors_integral(void)
+{
+	return front_sensors_integral;
+}
+
+float get_diagonal_sensors_integral(void)
+{
+	return diagonal_sensors_integral;
+}
+
 /**
  * @brief Return the current voltage for the left motor.
  */
@@ -352,6 +368,8 @@ void motor_control(void)
 	struct control_constants control;
 	float next_ideal_linear_speed;
 	float next_force;
+	float angular_acceleration;
+	float angular_acceleration_force;
 
 	if (!motor_control_enabled_signal)
 		return;
@@ -405,6 +423,26 @@ void motor_control(void)
 	    FEEDFORWARD_SPEED_RIGHT_1 * next_ideal_linear_speed +
 	    FEEDFORWARD_FORCE_RIGHT * next_force / 2.;
 
+	angular_acceleration = (ideal_angular_speed - last_ideal_angular_speed) *
+			       SYSTICK_FREQUENCY_HZ;
+	angular_acceleration_force =
+	    (angular_acceleration * MOUSE_MOMENT_OF_INERTIA /
+	     MOUSE_WHEELS_SEPARATION);
+
+	feedforward_left += FEEDFORWARD_SPEED_LEFT_1 * ideal_angular_speed * MOUSE_WHEELS_SEPARATION / 2.;
+	feedforward_right -= FEEDFORWARD_SPEED_RIGHT_1 * ideal_angular_speed * MOUSE_WHEELS_SEPARATION / 2.;
+
+	feedforward_left += FEEDFORWARD_FORCE_LEFT * angular_acceleration_force;
+	feedforward_right -= FEEDFORWARD_FORCE_RIGHT * angular_acceleration_force;
+
+        if (ideal_angular_speed > 0) {
+                feedforward_left += FEEDFORWARD_TURN_RIGHT_LEFT;
+                feedforward_right += FEEDFORWARD_TURN_RIGHT_RIGHT;
+        } else if (ideal_angular_speed < 0) {
+                feedforward_left += FEEDFORWARD_TURN_LEFT_LEFT;
+                feedforward_right += FEEDFORWARD_TURN_LEFT_RIGHT;
+        }
+
 	voltage_left = feedforward_left + feedback_linear + feedback_angular;
 	voltage_right = feedforward_right + feedback_linear - feedback_angular;
 	pwm_left = voltage_to_motor_pwm(voltage_left);
@@ -415,6 +453,7 @@ void motor_control(void)
 
 	last_linear_error = linear_error;
 	last_angular_error = angular_error;
+        last_ideal_angular_speed = ideal_angular_speed;
 
 	ideal_linear_speed = next_ideal_linear_speed;
 
