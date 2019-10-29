@@ -15,6 +15,11 @@
 #include "motor.h"
 #include "setup.h"
 
+enum turn_side {
+        TURN_LEFT,
+        TURN_RIGHT,
+}
+
 void set_starting_position(void);
 int32_t required_micrometers_to_speed(float speed);
 float required_time_to_speed(float speed);

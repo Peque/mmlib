@@ -136,6 +136,46 @@ void target_straight(int32_t start, float distance, float speed)
 	}
 }
 
+float meters_since_start(int32_t start)
+{
+	return ((float)(get_encoder_average_micrometers() - start)) / MICROMETERS_PER_METER;
+}
+
+void move_orthogonal_break_post(float force, float distance, enum turn_side side, float before, float end_linear_speed)
+{
+	int32_t target_distance;
+	int32_t start;
+
+	set_ideal_angular_speed(0.);
+
+	start = get_encoder_average_micrometers();
+
+	set_target_linear_speed(get_max_linear_speed());
+	deceleration_phase = false;
+	while (true) {
+		travelled_distance = meters_since_start(start);
+		remaining_distance = distance - travelled_distance;
+		if (travelled_distance >= target_distance)
+			break;
+		if (required_distance_to_speed(end_linear_speed) <= remaining_distance) {
+			deceleration_phase = true;
+			set_target_linear_speed(end_linear_speed);
+		}
+		if (deceleration_phase) {
+			deceleration = min(required_deceleration, 2 * force / MOUSE_MASS);
+			set_linear_deceleration(deceleration);
+		}
+		if (no_post_expected)
+			continue;
+		if (no_side_post_transition)
+			continue;
+		target_distance += post_transition_correction;
+	}
+	set_target_linear_speed(get_ideal_linear_speed());
+	/* TODO: remove/refactor */
+	set_linear_deceleration(2 * force / MOUSE_MASS);
+}
+
 /**
  * @brief Reach a target position at a target speed on a diagonal.
  *
@@ -473,6 +513,33 @@ void inplace_turn(float radians, float force)
 	set_ideal_angular_speed(0);
 }
 
+enum turn_side get_move_turn_side(enum movement turn)
+{
+	switch (turn) {
+	case MOVE_LEFT:
+	case MOVE_LEFT_90:
+	case MOVE_LEFT_180:
+	case MOVE_LEFT_TO_45:
+	case MOVE_LEFT_TO_135:
+	case MOVE_LEFT_FROM_45:
+	case MOVE_LEFT_FROM_135:
+	case MOVE_LEFT_DIAGONAL:
+		return TURN_LEFT;
+	case MOVE_RIGHT:
+	case MOVE_RIGHT_90:
+	case MOVE_RIGHT_180:
+	case MOVE_RIGHT_TO_45:
+	case MOVE_RIGHT_TO_135:
+	case MOVE_RIGHT_FROM_45:
+	case MOVE_RIGHT_FROM_135:
+	case MOVE_RIGHT_DIAGONAL:
+		return TURN_RIGHT;
+	default:
+		LOG_ERROR("Unknown side for turn [%d]!", turn);
+		return;
+	}
+}
+
 /**
  * @brief Execute a movement sequence.
  *
@@ -522,11 +589,12 @@ void execute_movement_sequence(char *sequence, float force,
 		case MOVE_RIGHT_TO_45:
 		case MOVE_LEFT_TO_135:
 		case MOVE_RIGHT_TO_135:
-			distance += get_move_turn_before(movement);
 			side_sensors_close_control(true);
 			side_sensors_far_control(false);
-			parametric_move_front(
+			move_orthogonal_break_post(
 			    distance,
+			    get_move_turn_side(movement),
+			    get_move_turn_before(movement),
 			    get_move_turn_linear_speed(movement, force));
 			speed_turn(movement, force);
 			distance = get_move_turn_after(movement);
