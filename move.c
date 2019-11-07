@@ -154,17 +154,16 @@ static void target_straight_diagonal(int32_t start, float distance,
 	target_distance = start + (int32_t)(distance * MICROMETERS_PER_METER);
 	target_control_distance =
 	    start + (int32_t)(control_distance * MICROMETERS_PER_METER);
-	diagonal_sensors_control(true);
 	set_target_linear_speed(get_max_linear_speed());
 	while (get_encoder_average_micrometers() <
 	       target_distance - required_micrometers_to_speed(speed)) {
-		if (get_encoder_average_micrometers() > target_control_distance)
-			diagonal_sensors_control(false);
+		diagonal_sensors_control(
+		    get_encoder_average_micrometers() < target_control_distance);
 	};
 	set_target_linear_speed(speed);
 	while (get_encoder_average_micrometers() < target_distance) {
-		if (get_encoder_average_micrometers() > target_control_distance)
-			diagonal_sensors_control(false);
+		diagonal_sensors_control(
+		    get_encoder_average_micrometers() < target_control_distance);
 	};
 }
 
